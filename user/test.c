@@ -38,10 +38,5 @@ int main(int argc, char *argv[])
     		printf("Parameter entered is unnacceptable. Enter '1', '2', or '3'.\n");
     }
     exit(0);
-    	
-    
-
-//EXIT:
-//    exit(0);
 
 }
