@@ -662,11 +662,13 @@ fetch_info(int n)
   printf("fetch_info from the kernel space with parameter %d\n", n);
 
   struct proc *p = myproc();
-
+  int procCnt;
+  int memSize;
+  int pageCnt;
   switch (n)
   {
     case 1:
-      int procCnt = 0;
+      procCnt = 0;
       for(p = proc; p < &proc[NPROC]; p++) {
         if(p->state != UNUSED) {
           procCnt++;
@@ -680,8 +682,8 @@ fetch_info(int n)
       break;
 
     case 3: 
-      int memSize = PGROUNDUP(p->sz);
-      int pageCnt = memSize / PGSIZE;
+      memSize = PGROUNDUP(p->sz);
+      pageCnt = memSize / PGSIZE;
       printf("The number of virtual memory pages the current process is using: %d\n", pageCnt);
       //The following disabled code is only used for verifying
       #if 0
@@ -689,6 +691,16 @@ fetch_info(int n)
       pageCnt = PGROUNDUP(p->sz) / PGSIZE;
       printf("2 the number of virtual memory pages the current process is using: %d\n", pageCnt);
       #endif
+      break;
+      
+    case 4: 
+      memSize = PGROUNDUP(p->sz);
+      pageCnt = memSize / PGSIZE;
+      printf("The number of virtual memory pages the current process is using: %d\n", pageCnt);
+      printf("increase mem allocation of current process by using growproc()...\n");
+      growproc(PGSIZE);
+      pageCnt = PGROUNDUP(p->sz) / PGSIZE;
+      printf("The new number of virtual memory pages the current process is using: %d\n", pageCnt);
       break;
 
     default:
