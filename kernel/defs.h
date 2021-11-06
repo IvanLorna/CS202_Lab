@@ -184,6 +184,8 @@ void            virtio_disk_intr(void);
 void            print_hello(int);
 // Lib 1
 void            fetch_info(int);
+// Lib 2
+void            set_proc_tickets(int n);
 
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))

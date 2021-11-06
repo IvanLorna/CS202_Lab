@@ -104,3 +104,12 @@ sys_info(void)
   fetch_info(n);
   return 0;
 }
+
+uint64
+sys_tickets(void)
+{
+  int n;
+  argint(0, &n);
+  set_proc_tickets(n);
+  return 0;
+}

@@ -94,6 +94,7 @@ struct proc {
   int pid;                     // Process ID
 
   int sysCallCnt;
+  int tickets;
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

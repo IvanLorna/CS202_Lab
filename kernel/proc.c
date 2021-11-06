@@ -165,6 +165,7 @@ freeproc(struct proc *p)
   p->xstate = 0;
   p->state = UNUSED;
   p->sysCallCnt = 0;
+  p->tickets = 0;
 }
 
 // Create a user page table for a given process,
@@ -707,4 +708,12 @@ fetch_info(int n)
       printf("Unsupport parameter\n");
       break;
   }
+}
+
+void 
+set_proc_tickets(int n)
+{
+  struct proc *p = myproc();
+  p->tickets = n;
+  printf("The tickets of current process is set to : %d\n", n);
 }
