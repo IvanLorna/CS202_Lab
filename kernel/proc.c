@@ -6,10 +6,6 @@
 #include "proc.h"
 #include "defs.h"
 
-//lab2
-static unsigned int rand_seed = 0;
-//
-
 
 struct cpu cpus[NCPU];
 
@@ -20,8 +16,29 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
-extern void forkret(void);
-static void freeproc(struct proc *p);
+struct spinlock tickets_lock;
+
+#define LOTTERY
+
+#ifdef LOTTERY
+
+static int total_tickets = 0;
+
+static void calculate_procs_ticket();
+
+#define ENABLE_FINDWINNER_FUN 0
+#if ENABLE_FINDWINNER_FUN
+static struct proc * findWinner(int random);
+#endif
+
+static unsigned int rand_int(void);
+#endif
+
+static void
+freeproc(struct proc *p);
+
+void
+forkret(void);
 
 extern char trampoline[]; // trampoline.S
 
@@ -55,6 +72,9 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
+  #ifdef LOTTERY
+  initlock(&tickets_lock, "tickets_lock");
+  #endif
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
@@ -133,6 +153,12 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
+  //p->tickets = 20;
+  printf("allocproc pid : %d\n", p->pid);
+  #ifdef LOTTERY
+  set_proc_tickets(p, 20);
+  //calculate_procs_ticket();
+  #endif
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -245,6 +271,7 @@ userinit(void)
 
   p = allocproc();
   initproc = p;
+  printf("userinit pid : %d\n", p->pid);
   
   // allocate one user page and copy init's instructions
   // and data into it.
@@ -453,14 +480,55 @@ wait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p;
+  struct proc *p = 0;
+  // struct proc *winner = 0;
   struct cpu *c = mycpu();
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    #ifdef LOTTERY
+    int random = rand_int();
+    #if ENABLE_FINDWINNER_FUN
+    p = findWinner(random);
+    #else
+    acquire(&tickets_lock);
 
+    int winner_ticket = random % total_tickets + 1;
+    //printf("findWinner winner_ticket = %d \n", winner_ticket);
+    struct proc *p_temp = 0;
+    for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
+    {
+      if((p_temp->state != UNUSED) && (p_temp->tickets != 0)) 
+      {
+        if((p_temp->tickets_winning_range_beginning <= winner_ticket)
+            && (winner_ticket <= p_temp->tickets_winning_range_end)) 
+        {
+          p = p_temp;
+          //printf("scheduler winner pid : %d\n", p->pid);
+          break;  
+        }
+      }
+    }
+    release(&tickets_lock);
+    #endif 
+    acquire(&p->lock);
+    if(p->state == RUNNABLE) {
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      p->state = RUNNING;
+      c->proc = p;
+      printf("scheduler swtch to pid : %d\n", p->pid);
+      swtch(&c->context, &p->context);
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
+    release(&p->lock);
+    #else
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -469,6 +537,7 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
+        printf("scheduler swtch to pid : %d\n", p->pid);
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -477,15 +546,9 @@ scheduler(void)
       }
       release(&p->lock);
     }
+    #endif
   }
 }
-
-
-int rand_int(void)
-{
-	rand_seed = (305901*rand_seed+1721719); 
-	return rand_seed;
-} 
 
 // Switch to scheduler.  Must hold only p->lock
 // and have changed proc->state. Saves and restores
@@ -510,6 +573,7 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
+  printf("sched swtch back from pid : %d\n", p->pid);
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -731,10 +795,94 @@ fetch_info(int n)
   }
 }
 
-void 
-set_proc_tickets(int n)
+void set_proc_tickets(struct proc *p, int n) 
 {
-  struct proc *p = myproc();
+  if(p == 0) 
+  {
+    printf("set_proc_tickets null pointer p\n");
+    return;
+  }
+
+  acquire(&tickets_lock);
   p->tickets = n;
-  printf("The tickets of current process is set to : %d\n", n);
+  #ifdef LOTTERY
+  calculate_procs_ticket();
+  #endif
+  release(&tickets_lock);
+  printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
 }
+
+#ifdef LOTTERY
+static void
+calculate_procs_ticket() 
+{
+  total_tickets = 0;
+  struct proc *p = 0;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if((p->state != UNUSED) && (p->tickets != 0)) {
+      p->tickets_winning_range_beginning = total_tickets + 1;
+      p->tickets_winning_range_end = total_tickets + p->tickets;
+      total_tickets += p->tickets;
+      //printf("calculate_procs_ticket pid : %d\n", p->pid);
+      //printf("calculate_procs_ticket tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
+      //printf("calculate_procs_ticket tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
+    }
+  }
+  printf("calculate_procs_ticket total_tickets : %d\n", total_tickets);
+}
+
+#if ENABLE_FINDWINNER_FUN
+static struct proc * findWinner(int random) 
+{
+  //printf("findWinner 1 \n");
+  struct proc *winner = 0;
+  
+  acquire(&tickets_lock);
+  if(total_tickets == 0) 
+  {
+    release(&tickets_lock);
+    return winner;
+  }
+
+  int winner_ticket = random % total_tickets + 1;
+  //printf("findWinner winner_ticket = %d \n", winner_ticket);
+  struct proc *p_temp = 0;
+  for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
+  {
+    if((p_temp->state != UNUSED) && (p_temp->tickets != 0)) 
+    {
+      if((p_temp->tickets_winning_range_beginning <= winner_ticket)
+          && (winner_ticket <= p_temp->tickets_winning_range_end)) 
+      {
+        winner = p_temp;
+        //printf("scheduler winner pid : %d\n", p->pid);
+        break;  
+      }
+    }
+  }
+
+  //printf("findWinner winner->pid : %d  winner_ticket = %d\n", winner->pid, winner_ticket);
+  release(&tickets_lock);
+
+  return winner;
+}
+#endif
+
+#if 0
+//lab2
+static unsigned int rand_seed = 0;
+//
+int rand_int(void)
+{
+	rand_seed = (305901*rand_seed+1721719); 
+	return rand_seed;
+} 
+#else
+static int gFixedRadomNum = 0;
+static unsigned int rand_int(void)
+{
+  gFixedRadomNum += 3;
+	return gFixedRadomNum;
+}
+#endif
+#endif 

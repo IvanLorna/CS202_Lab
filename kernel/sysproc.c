@@ -110,6 +110,7 @@ sys_tickets(void)
 {
   int n;
   argint(0, &n);
-  set_proc_tickets(n);
+  struct proc *p = myproc();
+  set_proc_tickets(p, n);
   return 0;
 }
