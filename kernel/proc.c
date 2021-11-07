@@ -6,6 +6,11 @@
 #include "proc.h"
 #include "defs.h"
 
+//lab2
+static unsigned int rand_seed = 0;
+//
+
+
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -75,6 +80,7 @@ mycpu(void) {
   return c;
 }
 
+/*
 struct ticketmaster
 {
 //array size in NPROC
@@ -82,7 +88,7 @@ int pids[NPROC] = 0
 int tickets[NPROC] = 0
 int tot_tickets = 0
 }
-
+*/
 // Return the current struct proc *, or zero if none.
 struct proc*
 myproc(void) {
@@ -474,9 +480,11 @@ scheduler(void)
   }
 }
 
-unsigned int rand_int(void)
+
+int rand_int(void)
 {
-	return std::time(nullptr);
+	rand_seed = (305901*rand_seed+1721719); 
+	return rand_seed;
 } 
 
 // Switch to scheduler.  Must hold only p->lock
