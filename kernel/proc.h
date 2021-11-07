@@ -94,6 +94,7 @@ struct proc {
   int pid;                     // Process ID
 
   int sysCallCnt;
+  int schedCnt;
   int tickets;
   int tickets_winning_range_beginning;
   int tickets_winning_range_end;

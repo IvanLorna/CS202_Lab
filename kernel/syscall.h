@@ -22,3 +22,4 @@
 #define SYS_close  21
 #define SYS_info   22
 #define SYS_tickets 23
+#define SYS_sched_statistics 24

@@ -18,10 +18,7 @@ struct spinlock pid_lock;
 
 struct spinlock tickets_lock;
 
-#define LOTTERY
-
 #ifdef LOTTERY
-
 static int total_tickets = 0;
 
 static void calculate_procs_ticket();
@@ -154,6 +151,7 @@ found:
   p->pid = allocpid();
   p->state = USED;
   //p->tickets = 20;
+  p->schedCnt = 0;
   printf("allocproc pid : %d\n", p->pid);
   #ifdef LOTTERY
   set_proc_tickets(p, 20);
@@ -519,6 +517,7 @@ scheduler(void)
       // to release its lock and then reacquire it
       // before jumping back to us.
       p->state = RUNNING;
+      p->schedCnt++;
       c->proc = p;
       printf("scheduler swtch to pid : %d\n", p->pid);
       swtch(&c->context, &p->context);
@@ -793,6 +792,12 @@ fetch_info(int n)
       printf("Unsupport parameter\n");
       break;
   }
+}
+
+void print_sched_statistics()
+{
+  struct proc *p = myproc();
+  printf("Process pid: %d sched count is: %d\n", p->pid, p->schedCnt);
 }
 
 void set_proc_tickets(struct proc *p, int n) 

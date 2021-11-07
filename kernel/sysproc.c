@@ -114,3 +114,10 @@ sys_tickets(void)
   set_proc_tickets(p, n);
   return 0;
 }
+
+uint64
+sys_sched_statistics(void)
+{
+  print_sched_statistics();
+  return 0;
+}

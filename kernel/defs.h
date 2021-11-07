@@ -186,7 +186,7 @@ void            print_hello(int);
 void            fetch_info(int);
 // Lib 2
 void            set_proc_tickets(struct proc *p, int n);
-
+void            print_sched_statistics();
 // number of elements in fixed-size array
 #define NELEM(x) (sizeof(x)/sizeof((x)[0]))
 
