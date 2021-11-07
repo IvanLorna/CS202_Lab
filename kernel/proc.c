@@ -18,17 +18,16 @@ struct spinlock pid_lock;
 
 struct spinlock tickets_lock;
 
+
+static unsigned int rand_int(void);
 #ifdef LOTTERY
 static int total_tickets = 0;
 
 static void calculate_procs_ticket();
-
+#endif
 #define ENABLE_FINDWINNER_FUN 0
 #if ENABLE_FINDWINNER_FUN
 static struct proc * findWinner(int random);
-#endif
-
-static unsigned int rand_int(void);
 #endif
 
 static void
@@ -97,15 +96,6 @@ mycpu(void) {
   return c;
 }
 
-/*
-struct ticketmaster
-{
-//array size in NPROC
-int pids[NPROC] = 0
-int tickets[NPROC] = 0
-int tot_tickets = 0
-}
-*/
 // Return the current struct proc *, or zero if none.
 struct proc*
 myproc(void) {
@@ -494,7 +484,7 @@ scheduler(void)
     acquire(&tickets_lock);
 
     int winner_ticket = random % total_tickets + 1;
-    //printf("findWinner winner_ticket = %d \n", winner_ticket);
+    printf("findWinner winner_ticket = %d \n", winner_ticket);
     struct proc *p_temp = 0;
     for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
     {
@@ -835,7 +825,7 @@ calculate_procs_ticket()
   }
   printf("calculate_procs_ticket total_tickets : %d\n", total_tickets);
 }
-
+#endif
 #if ENABLE_FINDWINNER_FUN
 static struct proc * findWinner(int random) 
 {
@@ -850,7 +840,7 @@ static struct proc * findWinner(int random)
   }
 
   int winner_ticket = random % total_tickets + 1;
-  //printf("findWinner winner_ticket = %d \n", winner_ticket);
+  printf("findWinner winner_ticket = %d \n", winner_ticket);
   struct proc *p_temp = 0;
   for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
   {
@@ -873,21 +863,16 @@ static struct proc * findWinner(int random)
 }
 #endif
 
-#if 0
+#if 1
 //lab2
-static unsigned int rand_seed = 0;
+static unsigned int r_x = 37;
 //
-int rand_int(void)
+//credit: Xorshift (https://en.wikipedia.org/wiki/Xorshift)
+unsigned int rand_int(void)
 {
-	rand_seed = (305901*rand_seed+1721719); 
-	return rand_seed;
+	r_x ^= r_x << 13;
+	r_x ^= r_x >> 17;
+	r_x ^= r_x << 5;
+	return r_x;
 } 
-#else
-static int gFixedRadomNum = 0;
-static unsigned int rand_int(void)
-{
-  gFixedRadomNum += 3;
-	return gFixedRadomNum;
-}
-#endif
 #endif 
