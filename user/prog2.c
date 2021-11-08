@@ -14,6 +14,7 @@ int main(int argc, char *argv[])
 			asm("nop");
 		}
 	}
+	printf("Prog2 pid = %d\n", getpid());
 	sched_statistics(); // your syscall
 	exit(0);
 }

@@ -149,7 +149,6 @@ found:
   printf("allocproc pid : %d\n", p->pid);
   #ifdef LOTTERY
   set_proc_tickets(p, 20);
-  calculate_procs_ticket();
   #endif
   #ifdef STRIDE
   set_proc_tickets(p, 100);
@@ -507,14 +506,19 @@ scheduler(void)
     #endif
     
     #ifdef LOTTERY
-    int random = rand_int();
+    unsigned int random = rand_int();
     #if ENABLE_FINDWINNER_FUN
     p = findWinner(random);
     #else
     acquire(&tickets_lock);
 
+<<<<<<< HEAD
     int winner_ticket = random % total_tickets + 1;
     //printf("findWinner winner_ticket = %d \n", winner_ticket);
+=======
+    unsigned int winner_ticket = random % total_tickets + 1;
+    //printf("findWinner winner_ticket = %d random = %d total_tickets=%d\n", winner_ticket, random, total_tickets);
+>>>>>>> Print out testing prog#'s pid and every processes's sched counts when call system call Statistic.
     struct proc *p_temp = 0;
     for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
     {
@@ -539,7 +543,10 @@ scheduler(void)
       p->state = RUNNING;
       p->schedCnt++;
       c->proc = p;
-      printf("scheduler swtch to pid : %d\n", p->pid);
+      // printf("****** scheduler winner_ticket = %d random = %d total_tickets=%d\n", winner_ticket, random, total_tickets);
+      // printf("****** scheduler swtch to pid : %d\n", p->pid);
+      // printf("****** scheduler tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
+      // printf("****** scheduler tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
       swtch(&c->context, &p->context);
 
       // Process is done running for now.
@@ -592,7 +599,7 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
-  printf("sched swtch back from pid : %d\n", p->pid);
+  //printf("sched swtch back to pid : %d\n", p->pid);
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -816,8 +823,13 @@ fetch_info(int n)
 
 void print_sched_statistics()
 {
-  struct proc *p = myproc();
-  printf("Process pid: %d sched count is: %d\n", p->pid, p->schedCnt);
+  struct proc *p;
+  
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if(p->state != UNUSED) {
+      printf("Process pid: %d sched count is: %d\n", p->pid, p->schedCnt);
+    }
+  }
 }
 
 void set_proc_tickets(struct proc *p, int n) 
@@ -827,14 +839,14 @@ void set_proc_tickets(struct proc *p, int n)
     printf("set_proc_tickets null pointer p\n");
     return;
   }
-
+  printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
   acquire(&tickets_lock);
   p->tickets = n;
   #ifdef LOTTERY
   calculate_procs_ticket();
   #endif
   release(&tickets_lock);
-  printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
+  
 }
 
 #ifdef LOTTERY
@@ -848,9 +860,9 @@ calculate_procs_ticket()
       p->tickets_winning_range_beginning = total_tickets + 1;
       p->tickets_winning_range_end = total_tickets + p->tickets;
       total_tickets += p->tickets;
-      //printf("calculate_procs_ticket pid : %d\n", p->pid);
-      //printf("calculate_procs_ticket tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
-      //printf("calculate_procs_ticket tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
+      printf("calculate_procs_ticket pid : %d\n", p->pid);
+      printf("calculate_procs_ticket tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
+      printf("calculate_procs_ticket tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
     }
   }
   printf("calculate_procs_ticket total_tickets : %d\n", total_tickets);
