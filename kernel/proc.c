@@ -6,7 +6,6 @@
 #include "proc.h"
 #include "defs.h"
 
-
 struct cpu cpus[NCPU];
 
 struct proc proc[NPROC];
@@ -18,7 +17,9 @@ struct spinlock pid_lock;
 
 struct spinlock tickets_lock;
 
-
+#define STRIDE 1
+#define STRIDE_NUM 100
+static struct proc * findMinStride();
 static unsigned int rand_int(void);
 #ifdef LOTTERY
 static int total_tickets = 0;
@@ -146,6 +147,10 @@ found:
   #ifdef LOTTERY
   set_proc_tickets(p, 20);
   //calculate_procs_ticket();
+  #endif
+  #if STRIDE
+  set_proc_tickets(p, 20);
+  p->stride_pass = STRIDE_NUM/p->tickets;
   #endif
 
   // Allocate a trapframe page.
@@ -404,7 +409,7 @@ exit(int status)
 
   release(&wait_lock);
 
-  // Jump into the scheduler, never to return.
+  // Jump into the schedulr, never to return.
   sched();
   panic("zombie exit");
 }
@@ -458,6 +463,7 @@ wait(uint64 addr)
   }
 }
 
+
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -476,6 +482,26 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    #if STRIDE
+    p = findMinStride();
+    
+    acquire(&p->lock);
+    
+    //update pass on selected proc
+    p->stride_pass += STRIDE_NUM/p->tickets;
+    
+    p->state = RUNNING;
+    p->schedCnt++;
+    c->proc = p;
+    printf("scheduler swtch to pid : %d\n", p->pid);
+    swtch(&c->context, &p->context);
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+    release(&p->lock);
+    #endif
+    
     #ifdef LOTTERY
     int random = rand_int();
     #if ENABLE_FINDWINNER_FUN
@@ -862,7 +888,22 @@ static struct proc * findWinner(int random)
   return winner;
 }
 #endif
+#if STRIDE
+static struct proc * findMinStride(void)
+{
+struct proc *p = 0;
+struct proc *minp = proc;
 
+	for(p = proc; p < &proc[NPROC]; p++) {
+		acquire(&p->lock);
+		if(p->stride_pass < minp->stride_pass) {
+			minp = p;
+		}
+	release(&p->lock);
+	}
+	return minp;	
+}
+#endif
 #if 1
 //lab2
 static unsigned int r_x = 37;

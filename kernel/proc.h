@@ -98,6 +98,7 @@ struct proc {
   int tickets;
   int tickets_winning_range_beginning;
   int tickets_winning_range_end;
+  int stride_pass;
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
