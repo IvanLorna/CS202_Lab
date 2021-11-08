@@ -27,8 +27,9 @@ static unsigned int rand_int(void);
 static int total_tickets = 0;
 
 static void calculate_procs_ticket();
-#endif
 #define ENABLE_FINDWINNER_FUN 0
+#endif
+
 #if ENABLE_FINDWINNER_FUN
 static struct proc * findWinner(int random);
 #endif
@@ -148,10 +149,10 @@ found:
   printf("allocproc pid : %d\n", p->pid);
   #ifdef LOTTERY
   set_proc_tickets(p, 20);
-  //calculate_procs_ticket();
+  calculate_procs_ticket();
   #endif
   #ifdef STRIDE
-  set_proc_tickets(p, 20);
+  set_proc_tickets(p, 100);
   p->stride_pass = STRIDE_NUM/p->tickets;
   #endif
 
@@ -201,6 +202,7 @@ freeproc(struct proc *p)
   p->state = UNUSED;
   p->sysCallCnt = 0;
   p->tickets = 0;
+  p->stride_pass = 0;
 }
 
 // Create a user page table for a given process,
@@ -488,7 +490,6 @@ scheduler(void)
     p = findMinStride();
     
     acquire(&p->lock);
-    
     //update pass on selected proc
     p->stride_pass += STRIDE_NUM/p->tickets;
     
@@ -500,6 +501,7 @@ scheduler(void)
 
     // Process is done running for now.
     // It should have changed its p->state before coming back.
+    printf("-----------------------\npid: %d\nstride pass: %d\n--------------------\n",p->pid,p->stride_pass);
     c->proc = 0;
     release(&p->lock);
     #endif
@@ -512,7 +514,7 @@ scheduler(void)
     acquire(&tickets_lock);
 
     int winner_ticket = random % total_tickets + 1;
-    printf("findWinner winner_ticket = %d \n", winner_ticket);
+    //printf("findWinner winner_ticket = %d \n", winner_ticket);
     struct proc *p_temp = 0;
     for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
     {
@@ -898,7 +900,7 @@ struct proc *minp = proc;
 
 	for(p = proc; p < &proc[NPROC]; p++) {
 		acquire(&p->lock);
-		if(p->stride_pass < minp->stride_pass) {
+		if ( (p->tickets > 0) && (p->stride_pass < minp->stride_pass)) {
 			minp = p;
 		}
 	release(&p->lock);
