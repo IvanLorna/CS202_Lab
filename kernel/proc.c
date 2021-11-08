@@ -17,11 +17,13 @@ struct spinlock pid_lock;
 
 struct spinlock tickets_lock;
 
-#define STRIDE 1
+#ifdef STRIDE
 #define STRIDE_NUM 100
 static struct proc * findMinStride();
-static unsigned int rand_int(void);
+#endif
+
 #ifdef LOTTERY
+static unsigned int rand_int(void);
 static int total_tickets = 0;
 
 static void calculate_procs_ticket();
@@ -69,7 +71,7 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
-  #ifdef LOTTERY
+  #if defined(LOTTERY) || defined(STRIDE)
   initlock(&tickets_lock, "tickets_lock");
   #endif
   for(p = proc; p < &proc[NPROC]; p++) {
@@ -148,7 +150,7 @@ found:
   set_proc_tickets(p, 20);
   //calculate_procs_ticket();
   #endif
-  #if STRIDE
+  #ifdef STRIDE
   set_proc_tickets(p, 20);
   p->stride_pass = STRIDE_NUM/p->tickets;
   #endif
@@ -482,7 +484,7 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    #if STRIDE
+    #ifdef STRIDE
     p = findMinStride();
     
     acquire(&p->lock);
@@ -888,7 +890,7 @@ static struct proc * findWinner(int random)
   return winner;
 }
 #endif
-#if STRIDE
+#ifdef STRIDE
 static struct proc * findMinStride(void)
 {
 struct proc *p = 0;
