@@ -18,7 +18,7 @@ struct spinlock pid_lock;
 struct spinlock tickets_lock;
 
 #ifdef STRIDE
-#define STRIDE_NUM 100
+#define STRIDE_NUM 0x0000FFFF
 static struct proc * findMinStride();
 #endif
 
@@ -148,7 +148,7 @@ found:
   p->schedCnt = 0;
   printf("allocproc pid : %d\n", p->pid);
   #ifdef LOTTERY
-  set_proc_tickets(p, 20);
+  set_proc_tickets(p, 1);
   #endif
   #ifdef STRIDE
   set_proc_tickets(p, 100);
@@ -485,27 +485,34 @@ scheduler(void)
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
+    
     #ifdef STRIDE
+    // printf("scheduler STRIDE\n");
     p = findMinStride();
-    
+    if(p == 0) {
+        // printf("scheduler p == 0\n");
+        continue;
+    }	
     acquire(&p->lock);
-    //update pass on selected proc
-    p->stride_pass += STRIDE_NUM/p->tickets;
-    
-    p->state = RUNNING;
-    p->schedCnt++;
-    c->proc = p;
-    printf("scheduler swtch to pid : %d\n", p->pid);
-    swtch(&c->context, &p->context);
+    if(p->state == RUNNABLE) {
+      // Switch to chosen process.  It is the process's job
+      // to release its lock and then reacquire it
+      // before jumping back to us.
+      p->state = RUNNING;
+      p->schedCnt++;
+      c->proc = p;
 
-    // Process is done running for now.
-    // It should have changed its p->state before coming back.
-    printf("-----------------------\npid: %d\nstride pass: %d\n--------------------\n",p->pid,p->stride_pass);
-    c->proc = 0;
+      //update pass on selected proc
+      p->stride_pass += STRIDE_NUM/p->tickets;
+      // printf("scheduler swtch to pid : %d\n", p->pid);  
+      swtch(&c->context, &p->context);
+
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
     release(&p->lock);
-    #endif
-    
-    #ifdef LOTTERY
+    #elif LOTTERY
     unsigned int random = rand_int();
     #if ENABLE_FINDWINNER_FUN
     p = findWinner(random);
@@ -837,6 +844,9 @@ void set_proc_tickets(struct proc *p, int n)
   printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
   acquire(&tickets_lock);
   p->tickets = n;
+  #ifdef STRIDE
+  p->stride_pass = STRIDE_NUM/p->tickets;
+  #endif
   #ifdef LOTTERY
   calculate_procs_ticket();
   #endif
@@ -899,22 +909,42 @@ static struct proc * findWinner(int random)
   return winner;
 }
 #endif
+
 #ifdef STRIDE
 static struct proc * findMinStride(void)
 {
-struct proc *p = 0;
-struct proc *minp = proc;
+  struct proc *p = 0;
+  struct proc *minp = 0;
 
-	for(p = proc; p < &proc[NPROC]; p++) {
-		acquire(&p->lock);
-		if ( (p->tickets > 0) && (p->stride_pass < minp->stride_pass)) {
-			minp = p;
-		}
-	release(&p->lock);
-	}
-	return minp;	
+  int i = 0;
+  for(i = 0; i < NPROC; i++) {
+    // printf("scheduler pid : %d proc[%d].state = %d\n", proc[i].pid, i, proc[i].state);
+    if(proc[i].state != RUNNABLE) {
+      continue;
+    } 
+    minp = &proc[i];
+    break;
+  }
+
+  for(int j = (i + 1); j < NPROC; j++) {
+    p = &proc[j];
+    if(p->state != UNUSED) {
+      // printf("scheduler pid : %d  state = %d \n", p->pid, p->state);
+    } else {
+      continue;
+    }
+    if(p->state != RUNNABLE) {
+      continue;
+    }
+    // acquire(&p->lock);
+    if ( (p->tickets > 0) && (p->stride_pass < minp->stride_pass)) {
+      minp = p;
+    }
+  }
+  return minp;
 }
 #endif
+
 #if 1
 //lab2
 static unsigned int r_x = 37;
