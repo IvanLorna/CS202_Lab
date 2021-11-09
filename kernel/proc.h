@@ -94,11 +94,17 @@ struct proc {
   int pid;                     // Process ID
 
   int sysCallCnt;
-  int schedCnt;
-  int tickets;
-  int tickets_winning_range_beginning;
-  int tickets_winning_range_end;
-  int stride_pass;
+                           
+  // Save process's scheduled count
+  int schedCnt;                
+  // Save process's tickets
+  int tickets;  
+  // Save process's lottery winning range based on tickets
+  int tickets_winning_range_beginning;  
+  // Save process's lottery winning range based on tickets
+  int tickets_winning_range_end; 
+  // Save process's stride pass
+  int stride_pass;                      
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process

@@ -3,6 +3,7 @@
 #include "user/user.h"
 int main(int argc, char *argv[])
 {
+	printf("Prog1 tickets: %d pid: %d\n", 30, getpid());
 	tickets(30); // write your own function here
 	int i,k;
 	const int loop=100000; // adjust this parameter depending on your system speed
@@ -14,7 +15,7 @@ int main(int argc, char *argv[])
 			asm("nop");
 		}
 	}
-	printf("Prog1 pid = %d\n", getpid());
+	printf("Prog1 exit\n");
 	sched_statistics(); // your syscall
 	exit(0);
 }

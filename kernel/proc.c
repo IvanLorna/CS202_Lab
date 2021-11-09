@@ -146,9 +146,9 @@ found:
   p->state = USED;
   //p->tickets = 20;
   p->schedCnt = 0;
-  printf("allocproc pid : %d\n", p->pid);
+  // printf("allocproc pid : %d\n", p->pid);
   #ifdef LOTTERY
-  set_proc_tickets(p, 1);
+  set_proc_tickets(p, 10);
   #endif
   #ifdef STRIDE
   set_proc_tickets(p, 100);
@@ -841,7 +841,7 @@ void set_proc_tickets(struct proc *p, int n)
     printf("set_proc_tickets null pointer p\n");
     return;
   }
-  printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
+  // printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
   acquire(&tickets_lock);
   p->tickets = n;
   #ifdef STRIDE
@@ -865,12 +865,12 @@ calculate_procs_ticket()
       p->tickets_winning_range_beginning = total_tickets + 1;
       p->tickets_winning_range_end = total_tickets + p->tickets;
       total_tickets += p->tickets;
-      printf("calculate_procs_ticket pid : %d\n", p->pid);
-      printf("calculate_procs_ticket tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
-      printf("calculate_procs_ticket tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
+      // printf("calculate_procs_ticket pid : %d\n", p->pid);
+      // printf("calculate_procs_ticket tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
+      // printf("calculate_procs_ticket tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
     }
   }
-  printf("calculate_procs_ticket total_tickets : %d\n", total_tickets);
+  // printf("calculate_procs_ticket total_tickets : %d\n", total_tickets);
 }
 #endif
 #if ENABLE_FINDWINNER_FUN
