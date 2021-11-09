@@ -512,13 +512,8 @@ scheduler(void)
     #else
     acquire(&tickets_lock);
 
-<<<<<<< HEAD
-    int winner_ticket = random % total_tickets + 1;
-    //printf("findWinner winner_ticket = %d \n", winner_ticket);
-=======
     unsigned int winner_ticket = random % total_tickets + 1;
     //printf("findWinner winner_ticket = %d random = %d total_tickets=%d\n", winner_ticket, random, total_tickets);
->>>>>>> Print out testing prog#'s pid and every processes's sched counts when call system call Statistic.
     struct proc *p_temp = 0;
     for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
     {
