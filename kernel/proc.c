@@ -17,8 +17,11 @@ struct spinlock pid_lock;
 
 struct spinlock tickets_lock;
 
+// static struct file *statistic_file;
+static void print_sched_statistics_in_row();
+
 #ifdef STRIDE
-#define STRIDE_NUM 0x0000FFFF
+#define STRIDE_NUM 60
 static struct proc * findMinStride();
 #endif
 
@@ -151,7 +154,7 @@ found:
   set_proc_tickets(p, 10);
   #endif
   #ifdef STRIDE
-  set_proc_tickets(p, 100);
+  set_proc_tickets(p, 60);
   p->stride_pass = STRIDE_NUM/p->tickets;
   #endif
 
@@ -480,6 +483,10 @@ scheduler(void)
   struct proc *p = 0;
   // struct proc *winner = 0;
   struct cpu *c = mycpu();
+
+  // if(statistic_file == 0) {
+  //   statistic_file = open("./statistic_file");
+  // }
   
   c->proc = 0;
   for(;;){
@@ -506,6 +513,8 @@ scheduler(void)
       p->stride_pass += STRIDE_NUM/p->tickets;
       // printf("scheduler swtch to pid : %d\n", p->pid);  
       swtch(&c->context, &p->context);
+
+      print_sched_statistics_in_row();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
@@ -550,6 +559,8 @@ scheduler(void)
       // printf("****** scheduler tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
       // printf("****** scheduler tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
       swtch(&c->context, &p->context);
+
+      print_sched_statistics_in_row();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
@@ -823,16 +834,40 @@ fetch_info(int n)
   }
 }
 
+static void print_sched_statistics_in_row()
+{
+  struct proc *p;
+
+  int procCnt = 0;
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if(p->state != UNUSED) {
+      procCnt++;
+    }
+  }
+  if(procCnt < 5) {
+    return;
+  }
+  
+  for(p = proc; p < &proc[NPROC]; p++) {
+    if(p->state != UNUSED) {
+      printf("pid:%d,%d,", p->pid, p->schedCnt);
+    }
+  }
+  printf("\n");
+}
+
 void print_sched_statistics()
 {
   struct proc *p;
-  
+
   for(p = proc; p < &proc[NPROC]; p++) {
     if(p->state != UNUSED) {
       printf("Process pid: %d sched count is: %d\n", p->pid, p->schedCnt);
     }
   }
 }
+
+static int set_cnt = 0;
 
 void set_proc_tickets(struct proc *p, int n) 
 {
@@ -851,7 +886,15 @@ void set_proc_tickets(struct proc *p, int n)
   calculate_procs_ticket();
   #endif
   release(&tickets_lock);
-  
+  set_cnt++;
+  if(set_cnt == 3) {
+    for(p = proc; p < &proc[NPROC]; p++) {
+      if(p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING) {
+        p->schedCnt = 0;
+      }
+    }
+    printf("********** Clear schedCnt\n");
+  }
 }
 
 #ifdef LOTTERY
