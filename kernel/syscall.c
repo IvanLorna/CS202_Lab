@@ -104,9 +104,6 @@ extern uint64 sys_unlink(void);
 extern uint64 sys_wait(void);
 extern uint64 sys_write(void);
 extern uint64 sys_uptime(void);
-extern uint64 sys_info(void);
-extern uint64 sys_tickets(void);
-extern uint64 sys_sched_statistics(void);
 
 static uint64 (*syscalls[])(void) = {
 [SYS_fork]    sys_fork,
@@ -130,9 +127,6 @@ static uint64 (*syscalls[])(void) = {
 [SYS_link]    sys_link,
 [SYS_mkdir]   sys_mkdir,
 [SYS_close]   sys_close,
-[SYS_info]    sys_info,
-[SYS_tickets]  sys_tickets,
-[SYS_sched_statistics]  sys_sched_statistics,
 };
 
 void
@@ -140,8 +134,6 @@ syscall(void)
 {
   int num;
   struct proc *p = myproc();
-
-  p->sysCallCnt++;
 
   num = p->trapframe->a7;
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {

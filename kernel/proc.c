@@ -15,33 +15,8 @@ struct proc *initproc;
 int nextpid = 1;
 struct spinlock pid_lock;
 
-struct spinlock tickets_lock;
-
-// static struct file *statistic_file;
-static void print_sched_statistics_in_row();
-
-#ifdef STRIDE
-#define STRIDE_NUM 60
-static struct proc * findMinStride();
-#endif
-
-#ifdef LOTTERY
-static unsigned int rand_int(void);
-static int total_tickets = 0;
-
-static void calculate_procs_ticket();
-#define ENABLE_FINDWINNER_FUN 0
-#endif
-
-#if ENABLE_FINDWINNER_FUN
-static struct proc * findWinner(int random);
-#endif
-
-static void
-freeproc(struct proc *p);
-
-void
-forkret(void);
+extern void forkret(void);
+static void freeproc(struct proc *p);
 
 extern char trampoline[]; // trampoline.S
 
@@ -75,9 +50,6 @@ procinit(void)
   
   initlock(&pid_lock, "nextpid");
   initlock(&wait_lock, "wait_lock");
-  #if defined(LOTTERY) || defined(STRIDE)
-  initlock(&tickets_lock, "tickets_lock");
-  #endif
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
@@ -147,16 +119,6 @@ allocproc(void)
 found:
   p->pid = allocpid();
   p->state = USED;
-  //p->tickets = 20;
-  p->schedCnt = 0;
-  // printf("allocproc pid : %d\n", p->pid);
-  #ifdef LOTTERY
-  set_proc_tickets(p, 10);
-  #endif
-  #ifdef STRIDE
-  set_proc_tickets(p, 60);
-  p->stride_pass = STRIDE_NUM/p->tickets;
-  #endif
 
   // Allocate a trapframe page.
   if((p->trapframe = (struct trapframe *)kalloc()) == 0){
@@ -202,9 +164,6 @@ freeproc(struct proc *p)
   p->killed = 0;
   p->xstate = 0;
   p->state = UNUSED;
-  p->sysCallCnt = 0;
-  p->tickets = 0;
-  p->stride_pass = 0;
 }
 
 // Create a user page table for a given process,
@@ -270,7 +229,6 @@ userinit(void)
 
   p = allocproc();
   initproc = p;
-  printf("userinit pid : %d\n", p->pid);
   
   // allocate one user page and copy init's instructions
   // and data into it.
@@ -415,7 +373,7 @@ exit(int status)
 
   release(&wait_lock);
 
-  // Jump into the schedulr, never to return.
+  // Jump into the scheduler, never to return.
   sched();
   panic("zombie exit");
 }
@@ -469,7 +427,6 @@ wait(uint64 addr)
   }
 }
 
-
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
 // Scheduler never returns.  It loops, doing:
@@ -480,94 +437,14 @@ wait(uint64 addr)
 void
 scheduler(void)
 {
-  struct proc *p = 0;
-  // struct proc *winner = 0;
+  struct proc *p;
   struct cpu *c = mycpu();
-
-  // if(statistic_file == 0) {
-  //   statistic_file = open("./statistic_file");
-  // }
   
   c->proc = 0;
   for(;;){
     // Avoid deadlock by ensuring that devices can interrupt.
     intr_on();
-    
-    #ifdef STRIDE
-    // printf("scheduler STRIDE\n");
-    p = findMinStride();
-    if(p == 0) {
-        // printf("scheduler p == 0\n");
-        continue;
-    }	
-    acquire(&p->lock);
-    if(p->state == RUNNABLE) {
-      // Switch to chosen process.  It is the process's job
-      // to release its lock and then reacquire it
-      // before jumping back to us.
-      p->state = RUNNING;
-      p->schedCnt++;
-      c->proc = p;
 
-      //update pass on selected proc
-      p->stride_pass += STRIDE_NUM/p->tickets;
-      // printf("scheduler swtch to pid : %d\n", p->pid);  
-      swtch(&c->context, &p->context);
-
-      print_sched_statistics_in_row();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
-    release(&p->lock);
-    #elif LOTTERY
-    unsigned int random = rand_int();
-    #if ENABLE_FINDWINNER_FUN
-    p = findWinner(random);
-    #else
-    acquire(&tickets_lock);
-
-    unsigned int winner_ticket = random % total_tickets + 1;
-    //printf("findWinner winner_ticket = %d random = %d total_tickets=%d\n", winner_ticket, random, total_tickets);
-    struct proc *p_temp = 0;
-    for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
-    {
-      if((p_temp->state != UNUSED) && (p_temp->tickets != 0)) 
-      {
-        if((p_temp->tickets_winning_range_beginning <= winner_ticket)
-            && (winner_ticket <= p_temp->tickets_winning_range_end)) 
-        {
-          p = p_temp;
-          //printf("scheduler winner pid : %d\n", p->pid);
-          break;  
-        }
-      }
-    }
-    release(&tickets_lock);
-    #endif 
-    acquire(&p->lock);
-    if(p->state == RUNNABLE) {
-      // Switch to chosen process.  It is the process's job
-      // to release its lock and then reacquire it
-      // before jumping back to us.
-      p->state = RUNNING;
-      p->schedCnt++;
-      c->proc = p;
-      // printf("****** scheduler winner_ticket = %d random = %d total_tickets=%d\n", winner_ticket, random, total_tickets);
-      // printf("****** scheduler swtch to pid : %d\n", p->pid);
-      // printf("****** scheduler tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
-      // printf("****** scheduler tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
-      swtch(&c->context, &p->context);
-
-      print_sched_statistics_in_row();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
-    }
-    release(&p->lock);
-    #else
     for(p = proc; p < &proc[NPROC]; p++) {
       acquire(&p->lock);
       if(p->state == RUNNABLE) {
@@ -576,7 +453,6 @@ scheduler(void)
         // before jumping back to us.
         p->state = RUNNING;
         c->proc = p;
-        printf("scheduler swtch to pid : %d\n", p->pid);
         swtch(&c->context, &p->context);
 
         // Process is done running for now.
@@ -585,7 +461,6 @@ scheduler(void)
       }
       release(&p->lock);
     }
-    #endif
   }
 }
 
@@ -612,7 +487,6 @@ sched(void)
     panic("sched interruptible");
 
   intena = mycpu()->intena;
-  //printf("sched swtch back to pid : %d\n", p->pid);
   swtch(&p->context, &mycpu()->context);
   mycpu()->intena = intena;
 }
@@ -780,224 +654,3 @@ procdump(void)
     printf("\n");
   }
 }
-
-void 
-fetch_info(int n)
-{
-  printf("fetch_info from the kernel space with parameter %d\n", n);
-
-  struct proc *p = myproc();
-  int procCnt;
-  int memSize;
-  int pageCnt;
-  switch (n)
-  {
-    case 1:
-      procCnt = 0;
-      for(p = proc; p < &proc[NPROC]; p++) {
-        if(p->state != UNUSED) {
-          procCnt++;
-        }
-      }
-      printf("Count of the processes in the system: %d\n", procCnt);
-      break;
-    
-    case 2:
-      printf("The number of system calls this program has invoked: %d\n", p->sysCallCnt);
-      break;
-
-    case 3: 
-      memSize = PGROUNDUP(p->sz);
-      pageCnt = memSize / PGSIZE;
-      printf("The number of virtual memory pages the current process is using: %d\n", pageCnt);
-      //The following disabled code is only used for verifying
-      #if 0
-      growproc(PGSIZE);
-      pageCnt = PGROUNDUP(p->sz) / PGSIZE;
-      printf("2 the number of virtual memory pages the current process is using: %d\n", pageCnt);
-      #endif
-      break;
-      
-    case 4: 
-      memSize = PGROUNDUP(p->sz);
-      pageCnt = memSize / PGSIZE;
-      printf("The number of virtual memory pages the current process is using: %d\n", pageCnt);
-      printf("increase mem allocation of current process by using growproc()...\n");
-      growproc(PGSIZE);
-      pageCnt = PGROUNDUP(p->sz) / PGSIZE;
-      printf("The new number of virtual memory pages the current process is using: %d\n", pageCnt);
-      break;
-
-    default:
-      printf("Unsupport parameter\n");
-      break;
-  }
-}
-
-static void print_sched_statistics_in_row()
-{
-  struct proc *p;
-
-  int procCnt = 0;
-  for(p = proc; p < &proc[NPROC]; p++) {
-    if(p->state != UNUSED) {
-      procCnt++;
-    }
-  }
-  if(procCnt < 5) {
-    return;
-  }
-  
-  for(p = proc; p < &proc[NPROC]; p++) {
-    if(p->state != UNUSED) {
-      printf("pid:%d,%d,", p->pid, p->schedCnt);
-    }
-  }
-  printf("\n");
-}
-
-void print_sched_statistics()
-{
-  struct proc *p;
-
-  for(p = proc; p < &proc[NPROC]; p++) {
-    if(p->state != UNUSED) {
-      printf("Process pid: %d sched count is: %d\n", p->pid, p->schedCnt);
-    }
-  }
-}
-
-static int set_cnt = 0;
-
-void set_proc_tickets(struct proc *p, int n) 
-{
-  if(p == 0) 
-  {
-    printf("set_proc_tickets null pointer p\n");
-    return;
-  }
-  // printf("The tickets of process pid: %d is set to : %d\n", p->pid, n);
-  acquire(&tickets_lock);
-  p->tickets = n;
-  #ifdef STRIDE
-  p->stride_pass = STRIDE_NUM/p->tickets;
-  #endif
-  #ifdef LOTTERY
-  calculate_procs_ticket();
-  #endif
-  release(&tickets_lock);
-  set_cnt++;
-  if(set_cnt == 3) {
-    for(p = proc; p < &proc[NPROC]; p++) {
-      if(p->state == RUNNABLE || p->state == RUNNING || p->state == SLEEPING) {
-        p->schedCnt = 0;
-      }
-    }
-    printf("********** Clear schedCnt\n");
-  }
-}
-
-#ifdef LOTTERY
-static void
-calculate_procs_ticket() 
-{
-  total_tickets = 0;
-  struct proc *p = 0;
-  for(p = proc; p < &proc[NPROC]; p++) {
-    if((p->state != UNUSED) && (p->tickets != 0)) {
-      p->tickets_winning_range_beginning = total_tickets + 1;
-      p->tickets_winning_range_end = total_tickets + p->tickets;
-      total_tickets += p->tickets;
-      // printf("calculate_procs_ticket pid : %d\n", p->pid);
-      // printf("calculate_procs_ticket tickets_winning_range_beginning : %d\n", p->tickets_winning_range_beginning);
-      // printf("calculate_procs_ticket tickets_winning_range_end : %d\n", p->tickets_winning_range_end);
-    }
-  }
-  // printf("calculate_procs_ticket total_tickets : %d\n", total_tickets);
-}
-#endif
-#if ENABLE_FINDWINNER_FUN
-static struct proc * findWinner(int random) 
-{
-  //printf("findWinner 1 \n");
-  struct proc *winner = 0;
-  
-  acquire(&tickets_lock);
-  if(total_tickets == 0) 
-  {
-    release(&tickets_lock);
-    return winner;
-  }
-
-  int winner_ticket = random % total_tickets + 1;
-  printf("findWinner winner_ticket = %d \n", winner_ticket);
-  struct proc *p_temp = 0;
-  for(p_temp = proc; p_temp < &proc[NPROC]; p_temp++) 
-  {
-    if((p_temp->state != UNUSED) && (p_temp->tickets != 0)) 
-    {
-      if((p_temp->tickets_winning_range_beginning <= winner_ticket)
-          && (winner_ticket <= p_temp->tickets_winning_range_end)) 
-      {
-        winner = p_temp;
-        //printf("scheduler winner pid : %d\n", p->pid);
-        break;  
-      }
-    }
-  }
-
-  //printf("findWinner winner->pid : %d  winner_ticket = %d\n", winner->pid, winner_ticket);
-  release(&tickets_lock);
-
-  return winner;
-}
-#endif
-
-#ifdef STRIDE
-static struct proc * findMinStride(void)
-{
-  struct proc *p = 0;
-  struct proc *minp = 0;
-
-  int i = 0;
-  for(i = 0; i < NPROC; i++) {
-    // printf("scheduler pid : %d proc[%d].state = %d\n", proc[i].pid, i, proc[i].state);
-    if(proc[i].state != RUNNABLE) {
-      continue;
-    } 
-    minp = &proc[i];
-    break;
-  }
-
-  for(int j = (i + 1); j < NPROC; j++) {
-    p = &proc[j];
-    if(p->state != UNUSED) {
-      // printf("scheduler pid : %d  state = %d \n", p->pid, p->state);
-    } else {
-      continue;
-    }
-    if(p->state != RUNNABLE) {
-      continue;
-    }
-    // acquire(&p->lock);
-    if ( (p->tickets > 0) && (p->stride_pass < minp->stride_pass)) {
-      minp = p;
-    }
-  }
-  return minp;
-}
-#endif
-
-#if 1
-//lab2
-static unsigned int r_x = 37;
-//
-//credit: Xorshift (https://en.wikipedia.org/wiki/Xorshift)
-unsigned int rand_int(void)
-{
-	r_x ^= r_x << 13;
-	r_x ^= r_x >> 17;
-	r_x ^= r_x << 5;
-	return r_x;
-} 
-#endif 

@@ -36,6 +36,3 @@ entry("getpid");
 entry("sbrk");
 entry("sleep");
 entry("uptime");
-entry("info");
-entry("tickets");
-entry("sched_statistics");

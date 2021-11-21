@@ -95,29 +95,3 @@ sys_uptime(void)
   release(&tickslock);
   return xticks;
 }
-
-uint64
-sys_info(void)
-{
-  int n;
-  argint(0, &n);
-  fetch_info(n);
-  return 0;
-}
-
-uint64
-sys_tickets(void)
-{
-  int n;
-  argint(0, &n);
-  struct proc *p = myproc();
-  set_proc_tickets(p, n);
-  return 0;
-}
-
-uint64
-sys_sched_statistics(void)
-{
-  print_sched_statistics();
-  return 0;
-}

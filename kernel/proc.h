@@ -93,19 +93,6 @@ struct proc {
   int xstate;                  // Exit status to be returned to parent's wait
   int pid;                     // Process ID
 
-  int sysCallCnt;
-                           
-  // Save process's scheduled count
-  int schedCnt;                
-  // Save process's tickets
-  int tickets;  
-  // Save process's lottery winning range based on tickets
-  int tickets_winning_range_beginning;  
-  // Save process's lottery winning range based on tickets
-  int tickets_winning_range_end; 
-  // Save process's stride pass
-  int stride_pass;                      
-
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
 
