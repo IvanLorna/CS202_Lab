@@ -83,6 +83,19 @@ sys_kill(void)
   return kill(pid);
 }
 
+uint64
+sys_clone(void)
+{
+	uint64 st;
+	int sz;
+	if (argadder(0,&stack) <0)
+		return -1;
+	if(argint(1,&size)<0)
+		return -1;
+
+	return clone((void *)st, sz);
+}
+
 // return how many clock tick interrupts have occurred
 // since start.
 uint64
