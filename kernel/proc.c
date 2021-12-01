@@ -41,7 +41,7 @@ proc_mapstacks(pagetable_t kpgtbl) {
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
 }
-
+int i = 0;
 // initialize the proc table at boot time.
 void
 procinit(void)
@@ -53,6 +53,7 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
+      printf("procinit i = %d kstack = 0x%x\n", i++, p->kstack);
   }
 }
 
@@ -147,6 +148,9 @@ found:
 void
 forkret2(void);
 
+extern void
+usertrapret2(void);
+
 struct proc*
 allocproc_thread(void *stack, int size)
 {
@@ -173,20 +177,18 @@ found:
     return 0;
   }
 
-  struct proc *fp = myproc();
-
   // An empty user page table.
-  p->pagetable = fp->pagetable;
-  if(p->pagetable == 0){
-    freeproc(p);
-    release(&p->lock);
-    return 0;
-  }
+  // p->pagetable = proc_pagetable(p);
+  // if(p->pagetable == 0){
+  //   freeproc(p);
+  //   release(&p->lock);
+  //   return 0;
+  // }
 
   // Set up new context to start executing at forkret,
   // which returns to user space.
   memset(&p->context, 0, sizeof(p->context));
-  p->context.ra = (uint64)forkret;
+  p->context.ra = (uint64)forkret2;
   p->context.sp = p->kstack + PGSIZE;
 
   return p;
@@ -322,15 +324,15 @@ clone(void *stack, int size)
   struct proc *np;
   struct proc *p = myproc();
 
-  printf("stack: %p\nsize: %d\n", stack, size);
+  printf(" clone my pid = %d, stack: %p size: %d\n", p->pid, stack, size);
 
   // Allocate process.
-  // if((np = allocproc_thread(stack, size)) == 0){
-  //   return -1;
-  // }
-  if((np = allocproc()) == 0){
+  if((np = allocproc_thread(stack, size)) == 0){
     return -1;
   }
+  // if((np = allocproc()) == 0){
+  //   return -1;
+  // }
 
   np->pagetable = p->pagetable;
   // Copy user memory from parent to child.
@@ -346,7 +348,22 @@ clone(void *stack, int size)
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
-  np->trapframe->sp = (uint64)stack;
+  np->trapframe->sp = (uint64)stack + PGSIZE;
+
+  printf("clone TRAPFRAME - PGSIZE = 0x%x\n", TRAPFRAME - PGSIZE);
+
+  // if(mappages(np->pagetable, TRAMPOLINE, PGSIZE,
+  //             (uint64)trampoline, PTE_R | PTE_X) < 0){
+  //   uvmfree(np->pagetable, 0);
+  //   return 0;
+  // }
+
+  if(mappages(np->pagetable, TRAPFRAME - PGSIZE * 1 , PGSIZE,
+              (uint64)(np->trapframe), PTE_R | PTE_W) < 0){
+    uvmunmap(np->pagetable, TRAMPOLINE, 1, 0);
+    uvmfree(np->pagetable, 0);
+    return 0;
+  }
 
   // increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
@@ -368,7 +385,7 @@ clone(void *stack, int size)
   np->state = RUNNABLE;
   release(&np->lock);
 
-  printf("clone finish\n");
+  printf("clone finish pid = %d\n", pid);
 
   return pid;
 }
@@ -608,25 +625,48 @@ yield(void)
   release(&p->lock);
 }
 
+// void
+// forkret2(void)
+// {
+//   // static int first = 1;
+
+//   // // Still holding p->lock from scheduler.
+//   release(&myproc()->lock);
+
+//   // if (first) {
+//   //   // File system initialization must be run in the context of a
+//   //   // regular process (e.g., because it calls sleep), and thus cannot
+//   //   // be run from main().
+//   //   first = 0;
+//   //   fsinit(ROOTDEV);
+//   // }
+
+//   printf("forkret2\n");
+
+//   usertrapret();
+// }
+
 void
 forkret2(void)
 {
-  // static int first = 1;
+  static int first = 1;
 
-  // // Still holding p->lock from scheduler.
+  // Still holding p->lock from scheduler.
   release(&myproc()->lock);
 
-  // if (first) {
-  //   // File system initialization must be run in the context of a
-  //   // regular process (e.g., because it calls sleep), and thus cannot
-  //   // be run from main().
-  //   first = 0;
-  //   fsinit(ROOTDEV);
-  // }
+  if (first) {
+    // File system initialization must be run in the context of a
+    // regular process (e.g., because it calls sleep), and thus cannot
+    // be run from main().
+    first = 0;
+    fsinit(ROOTDEV);
+  }
 
   printf("forkret2\n");
 
-  usertrapret();
+  usertrapret2();
+
+  printf("forkret2 -1\n");
 }
 
 // A fork child's very first scheduling by scheduler()

@@ -9,7 +9,7 @@ int main(int argc, char *argv[])
 	// int n =0;
 	// if (argc >= 2) n = atoi(argv[1]);
 
-	void* freeptr = malloc(PGSIZE*4);
+	void* freeptr = malloc(PGSIZE*5);
 	void* stack;
 	if(freeptr == 0)
 		return -1;
@@ -18,12 +18,12 @@ int main(int argc, char *argv[])
 	// else
 	// 	stack = freeptr + (PGSIZE - ((uint64)freeptr % PGSIZE));
 
-	stack = (void *)(PGSIZE * (((uint64)freeptr + 2*PGSIZE) / PGSIZE));
+	stack = (void *)(PGSIZE * (((uint64)freeptr + 3*PGSIZE) / PGSIZE));
 
 	// void *stack = (void *)malloc(1024);
 	printf("test stack = 0x%x\n", stack);
 	int ret = clone(stack, PGSIZE);
-	printf("test ret = %d\n");
+	printf("test ret = %d\n", ret);
 	if(ret == 0) {
 		printf("test 1\n");
 		int i = 0;
