@@ -41,7 +41,7 @@ proc_mapstacks(pagetable_t kpgtbl) {
     kvmmap(kpgtbl, va, (uint64)pa, PGSIZE, PTE_R | PTE_W);
   }
 }
-
+int i = 0;
 // initialize the proc table at boot time.
 void
 procinit(void)
@@ -53,6 +53,7 @@ procinit(void)
   for(p = proc; p < &proc[NPROC]; p++) {
       initlock(&p->lock, "proc");
       p->kstack = KSTACK((int) (p - proc));
+      printf("procinit i = %d kstack = 0x%x\n", i++, p->kstack);
   }
 }
 
@@ -145,6 +146,53 @@ found:
 
   return p;
 }
+
+void forkret2(void);
+
+extern void usertrapret2(void);
+/* chenxi's allocproc_thread
+struct proc*
+allocproc_thread(void *stack, int size)
+{
+  struct proc *p;
+
+  for(p = proc; p < &proc[NPROC]; p++) {
+    acquire(&p->lock);
+    if(p->state == UNUSED) {
+      goto found;
+    } else {
+      release(&p->lock);
+    }
+  }
+  return 0;
+
+found:
+  p->pid = allocpid();
+  p->state = USED;
+
+  // Allocate a trapframe page.
+  if((p->trapframe = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
+  // An empty user page table.
+  // p->pagetable = proc_pagetable(p);
+  // if(p->pagetable == 0){
+  //   freeproc(p);
+  //   release(&p->lock);
+  //   return 0;
+  // }
+
+  // Set up new context to start executing at forkret,
+  // which returns to user space.
+  memset(&p->context, 0, sizeof(p->context));
+  p->context.ra = (uint64)forkret2;
+  p->context.sp = p->kstack + PGSIZE;
+
+  return p;
+}*/
 
 // free a proc structure and the data hanging from it,
 // including user pages.
@@ -270,7 +318,80 @@ growproc(int n)
   p->sz = sz;
   return 0;
 }
+/* Chenxi's clone
+int
+clone(void *stack, int size)
+{
+  int i, pid;
+  struct proc *np;
+  struct proc *p = myproc();
 
+  printf(" clone my pid = %d, stack: %p size: %d\n", p->pid, stack, size);
+
+  // Allocate process.
+  if((np = allocproc_thread(stack, size)) == 0){
+    return -1;
+  }
+  // if((np = allocproc()) == 0){
+  //   return -1;
+  // }
+
+  np->pagetable = p->pagetable;
+  // Copy user memory from parent to child.
+  // if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
+  //   freeproc(np);
+  //   release(&np->lock);
+  //   return -1;
+  // }
+  np->sz = p->sz;
+
+  // copy saved user registers.
+  *(np->trapframe) = *(p->trapframe);
+
+  // Cause fork to return 0 in the child.
+  np->trapframe->a0 = 0;
+  np->trapframe->sp = (uint64)stack + PGSIZE;
+
+  printf("clone TRAPFRAME - PGSIZE = 0x%x\n", TRAPFRAME - PGSIZE);
+
+  // if(mappages(np->pagetable, TRAMPOLINE, PGSIZE,
+  //             (uint64)trampoline, PTE_R | PTE_X) < 0){
+  //   uvmfree(np->pagetable, 0);
+  //   return 0;
+  // }
+
+  if(mappages(np->pagetable, TRAPFRAME - PGSIZE * 1 , PGSIZE,
+              (uint64)(np->trapframe), PTE_R | PTE_W) < 0){
+    uvmunmap(np->pagetable, TRAMPOLINE, 1, 0);
+    uvmfree(np->pagetable, 0);
+    return 0;
+  }
+
+  // increment reference counts on open file descriptors.
+  for(i = 0; i < NOFILE; i++)
+    if(p->ofile[i])
+      np->ofile[i] = filedup(p->ofile[i]);
+  np->cwd = idup(p->cwd);
+
+  safestrcpy(np->name, p->name, sizeof(p->name));
+
+  pid = np->pid;
+
+  release(&np->lock);
+
+  acquire(&wait_lock);
+  np->parent = p;
+  release(&wait_lock);
+
+  acquire(&np->lock);
+  np->state = RUNNABLE;
+  release(&np->lock);
+
+  printf("clone finish pid = %d\n", pid);
+
+  return pid;
+}
+*/
 // Create a new process, copying the parent.
 // Sets up child kernel stack to return as if from fork() system call.
 int
@@ -504,6 +625,50 @@ yield(void)
   p->state = RUNNABLE;
   sched();
   release(&p->lock);
+}
+
+// void
+// forkret2(void)
+// {
+//   // static int first = 1;
+
+//   // // Still holding p->lock from scheduler.
+//   release(&myproc()->lock);
+
+//   // if (first) {
+//   //   // File system initialization must be run in the context of a
+//   //   // regular process (e.g., because it calls sleep), and thus cannot
+//   //   // be run from main().
+//   //   first = 0;
+//   //   fsinit(ROOTDEV);
+//   // }
+
+//   printf("forkret2\n");
+
+//   usertrapret();
+// }
+
+void
+forkret2(void)
+{
+  static int first = 1;
+
+  // Still holding p->lock from scheduler.
+  release(&myproc()->lock);
+
+  if (first) {
+    // File system initialization must be run in the context of a
+    // regular process (e.g., because it calls sleep), and thus cannot
+    // be run from main().
+    first = 0;
+    fsinit(ROOTDEV);
+  }
+
+  printf("forkret2\n");
+
+  usertrapret2();
+
+  printf("forkret2 -1\n");
 }
 
 // A fork child's very first scheduling by scheduler()
@@ -789,4 +954,3 @@ int clone(void * stack, int size)
   
   return pid;
 }
-
