@@ -23,6 +23,7 @@ int main(int argc, char *argv[])
 
 	// void *stack = (void *)malloc(1024);
 	printf("test stack = 0x%x\n", stack);
+	//int ret = fork();
 	int ret = clone(stack, PGSIZE);
 	printf("test ret = %d\n", ret);
 	if(ret == 0) {

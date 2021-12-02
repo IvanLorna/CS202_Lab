@@ -899,7 +899,7 @@ int clone(void * stack, int size)
     return -1;
   }
   
-  int i, pid;
+  //int i;
   struct proc *np;
   struct proc *p = myproc();
 
@@ -915,7 +915,7 @@ int clone(void * stack, int size)
   //  return -1;
   //}
   np->pagetable = p->pagetable;
-  np->sz = p->sz;
+  //np->sz = p->sz;
   
   //update parent thread count and thread id
   p->tcnt +=1;
@@ -923,17 +923,19 @@ int clone(void * stack, int size)
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
+  np->kstack = p->kstack;//(uint64) stack;
+  np->sz = size;
   np->trapframe->sp = (uint64) stack;// + size;
-  //np->trapframe->kernel_sp = (uint64) (stack+size);
+  np->trapframe->kernel_sp = (uint64) (stack);//+size);
 	
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
 
-  // increment reference counts on open file descriptors.
+  //increment reference counts on open file descriptors.
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
-      np->ofile[i] = filedup(p->ofile[i]);
-  np->cwd = idup(p->cwd);
+      np->ofile[i] = p->ofile[i];
+  np->cwd = p->cwd;
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
@@ -952,5 +954,5 @@ int clone(void * stack, int size)
   release(&np->lock);
   
   
-  return pid;
+  return np->pid;
 }
