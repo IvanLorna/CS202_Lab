@@ -94,7 +94,6 @@ struct proc {
   int pid;                     // Process ID
   int tid;			//LAB3:: Thread ID, 0 if parent
   int tcnt;			//LAB3:: Thread count, nonzero only for parent
-  
 
   // wait_lock must be held when using this:
   struct proc *parent;         // Parent process
