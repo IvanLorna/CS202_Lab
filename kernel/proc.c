@@ -193,8 +193,16 @@ freeproc(struct proc *p)
   if(p->trapframe)
     kfree((void*)p->trapframe);
   p->trapframe = 0;
-  if(p->pagetable)
+  //Unmap trapframe from pagetable
+  if(p->tid != 0) {
+    uvmunmap(p->pagetable, TRAPFRAME - PGSIZE * p->tid , 1, 0);
+  }
+
+  if(p->tid == 0 && p->pagetable) {
+    // printf("freeproc p->pid = %d\n", p->pid);
     proc_freepagetable(p->pagetable, p->sz);
+  }
+    
   p->pagetable = 0;
   p->sz = 0;
   p->pid = 0;
@@ -495,7 +503,8 @@ int
 wait(uint64 addr)
 {
   struct proc *np;
-  int havekids, pid;
+  int havekids, pid, tid;
+  // int kidsNum = 0;
   struct proc *p = myproc();
 
   acquire(&wait_lock);
@@ -512,16 +521,30 @@ wait(uint64 addr)
         if(np->state == ZOMBIE){
           // Found one.
           pid = np->pid;
+          tid = np->tid;
+          if(tid != 0) {
+            p->tcnt--;
+          }
           if(addr != 0 && copyout(p->pagetable, addr, (char *)&np->xstate,
                                   sizeof(np->xstate)) < 0) {
             release(&np->lock);
             release(&wait_lock);
             return -1;
           }
+          // printf("****** freeproc np->pid = %d\n", np->pid);
           freeproc(np);
           release(&np->lock);
-          release(&wait_lock);
-          return pid;
+          if(tid == 0) {
+            release(&wait_lock);
+            return pid;
+          } else {
+            if(p->tcnt == 0) {
+              release(&wait_lock);
+              return pid;
+            } else {
+              continue;
+            }
+          }
         }
         release(&np->lock);
       }

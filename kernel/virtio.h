@@ -5,7 +5,7 @@
 // this is the "legacy" virtio interface.
 //
 // the virtio spec:
-// https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdf
+// https://docs.oasis-open.org/virtio/virtio/v1.1/virtio-v1.1.pdfcxliu
 //
 
 // virtio mmio control registers, mapped starting at 0x10001000.

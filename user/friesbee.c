@@ -35,20 +35,19 @@ int main(int argc, char *argv[])
 		thread_create(start_play, &playerIdArray[i]);
 		// sleep(5);
 	}
-
-	int i = 0;
-	while(i < 1000) {
-		i++;
-		sleep(10);
-		printf("\ntest parent waiting i1 = %d\n", i);
-	}
+	sleep(50);
+	// printf("\ntest parent waiting...\n");
+	wait(0);
+	// printf("\ntest parent waiting pid = %d\n", pid);
+	
+	printf("Simulation of Frisbee game has finished, %d rounds were played in total!\n", friesbee.totalThrowNum);
 
 	exit(0);
 }
 
 static void *start_play(void* arg) {
 	int playerId = *((int *)arg);
-	printf("start_routine playerId = %d &playerId = 0x%x\n", playerId, &playerId);
+	// printf("start_routine playerId = %d &playerId = 0x%x\n", playerId, &playerId);
 	while(1) {
 		lock_acquire(&friesbee.lock);
 		if(friesbee.passesNum >= friesbee.totalThrowNum) {

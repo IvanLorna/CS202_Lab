@@ -42,7 +42,7 @@ usertrap(void)
     panic("usertrap: not from user mode");
 
   // send interrupts and exceptions to kerneltrap(),
-  // since we're now in the kernel.
+  // since we're now in the kernel.cxliu
   w_stvec((uint64)kernelvec);
 
   struct proc *p = myproc();
@@ -112,7 +112,7 @@ usertrapret(void)
   // set S Previous Privilege mode to User.
   unsigned long x = r_sstatus();
   x &= ~SSTATUS_SPP; // clear SPP to 0 for user mode
-  x |= SSTATUS_SPIE; // enable interrupts in user mode
+  x |= SSTATUS_SPIE; // enable interrupts in user modecxliu
   w_sstatus(x);
 
   // set S Exception Program Counter to the saved user pc.
