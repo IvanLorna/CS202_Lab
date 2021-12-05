@@ -19,7 +19,6 @@ struct Friesbee friesbee;
 
 int main(int argc, char *argv[])
 {
-	return 0;
 	if(argc < 3) {
 		printf("Plese input the number of players and the number of passes\n", argc);
 		return -1;
@@ -40,11 +39,11 @@ int main(int argc, char *argv[])
 	int i = 0;
 	while(i < 1000) {
 		i++;
-		sleep(100);
+		sleep(10);
 		printf("\ntest parent waiting i1 = %d\n", i);
 	}
 
-	return 0;
+	exit(0);
 }
 
 static void *start_play(void* arg) {

@@ -353,7 +353,7 @@ clone(void *stack, int size)
   for(i = 0; i < NOFILE; i++)
     if(p->ofile[i])
       np->ofile[i] = p->ofile[i];
-  np->cwd = idup(p->cwd);
+  np->cwd = p->cwd;//idup(p->cwd);
 
   safestrcpy(np->name, p->name, sizeof(p->name));
 
@@ -451,18 +451,22 @@ exit(int status)
   if(p == initproc)
     panic("init exiting");
 
-  // Close all open files.
-  for(int fd = 0; fd < NOFILE; fd++){
-    if(p->ofile[fd]){
-      struct file *f = p->ofile[fd];
-      fileclose(f);
-      p->ofile[fd] = 0;
+  if(p->tid == 0) {
+    // Close all open files.
+    for(int fd = 0; fd < NOFILE; fd++){
+      if(p->ofile[fd]){
+        struct file *f = p->ofile[fd];
+        fileclose(f);
+        p->ofile[fd] = 0;
+      }
     }
+
+    begin_op();
+    iput(p->cwd);
+    end_op();
   }
 
-  begin_op();
-  iput(p->cwd);
-  end_op();
+  
   p->cwd = 0;
 
   acquire(&wait_lock);
