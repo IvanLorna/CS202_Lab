@@ -7,7 +7,7 @@
 
 static void *start_play(void* arg);
 
-struct Friesbee {
+struct Frisbee {
 	struct lock_t lock;
 	int nextPlayerId;
 	int passesNum;
@@ -15,7 +15,7 @@ struct Friesbee {
 	int playersNum;
 };
 
-struct Friesbee friesbee;
+struct Frisbee frisbee;
 
 int main(int argc, char *argv[])
 {
@@ -24,13 +24,13 @@ int main(int argc, char *argv[])
 		return -1;
 	}
 
-	friesbee.playersNum = atoi(argv[1]);
-	friesbee.totalThrowNum = atoi(argv[2]);
-	friesbee.passesNum = 0;
-	lock_init(&(friesbee.lock));
+	frisbee.playersNum = atoi(argv[1]);
+	frisbee.totalThrowNum = atoi(argv[2]);
+	frisbee.passesNum = 0;
+	lock_init(&(frisbee.lock));
 
-	int *playerIdArray = malloc(friesbee.playersNum * sizeof(int));
-	for(int i = 0; i < friesbee.playersNum; i++) {
+	int *playerIdArray = malloc(frisbee.playersNum * sizeof(int));
+	for(int i = 0; i < frisbee.playersNum; i++) {
 		playerIdArray[i] = i; 
 		thread_create(start_play, &playerIdArray[i]);
 		// sleep(5);
@@ -39,8 +39,10 @@ int main(int argc, char *argv[])
 	// printf("\ntest parent waiting...\n");
 	wait(0);
 	// printf("\ntest parent waiting pid = %d\n", pid);
+
+	free(playerIdArray);
 	
-	printf("Simulation of Frisbee game has finished, %d rounds were played in total!\n", friesbee.totalThrowNum);
+	printf("Simulation of Frisbee game has finished, %d rounds were played in total!\n", frisbee.totalThrowNum);
 
 	exit(0);
 }
@@ -49,21 +51,21 @@ static void *start_play(void* arg) {
 	int playerId = *((int *)arg);
 	// printf("start_routine playerId = %d &playerId = 0x%x\n", playerId, &playerId);
 	while(1) {
-		lock_acquire(&friesbee.lock);
-		if(friesbee.passesNum >= friesbee.totalThrowNum) {
-			printf("start_routine playerId = 0x%x game end\n", playerId);
+		lock_acquire(&frisbee.lock);
+		if(frisbee.passesNum >= frisbee.totalThrowNum) {
+			// printf("start_routine playerId = 0x%x game end\n", playerId);
 			sleep(5);
-			lock_release(&friesbee.lock);
+			lock_release(&frisbee.lock);
 			return (void *)0;
 		}
-		if(playerId == friesbee.nextPlayerId) {
-			friesbee.nextPlayerId = (playerId + 1) % friesbee.playersNum;
-			friesbee.passesNum++;
+		if(playerId == frisbee.nextPlayerId) {
+			frisbee.nextPlayerId = (playerId + 1) % frisbee.playersNum;
+			frisbee.passesNum++;
 			printf("\n Pass number no: %d, Thread %d is passing the token to thread %d\n",
-					friesbee.passesNum, playerId, friesbee.nextPlayerId);
+					frisbee.passesNum, playerId, frisbee.nextPlayerId);
 			sleep(5);
 		}
-		lock_release(&friesbee.lock);
+		lock_release(&frisbee.lock);
 	}
 	return (void *)0;
 }
