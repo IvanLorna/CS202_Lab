@@ -316,6 +316,9 @@ allocproc_thread(void *stack, int size);
 int
 clone(void *stack, int size)
 {
+  if(stack == 0 || size == 0) {
+    return -1;
+  }
   int i, pid;
   struct proc *np;
   struct proc *p = myproc();
@@ -330,12 +333,6 @@ clone(void *stack, int size)
   np->tid = p->tcnt;
 
   np->pagetable = p->pagetable;
-  // Copy user memory from parent to child.
-  // if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
-  //   freeproc(np);
-  //   release(&np->lock);
-  //   return -1;
-  // }
   np->sz = p->sz;
 
   // copy saved user registers.
@@ -344,14 +341,6 @@ clone(void *stack, int size)
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
   np->trapframe->sp = (uint64)stack + size;
-
-  printf("clone TRAPFRAME - PGSIZE = 0x%x\n", TRAPFRAME - PGSIZE);
-
-  // if(mappages(np->pagetable, TRAMPOLINE, PGSIZE,
-  //             (uint64)trampoline, PTE_R | PTE_X) < 0){
-  //   uvmfree(np->pagetable, 0);
-  //   return 0;
-  // }
 
   if(mappages(np->pagetable, TRAPFRAME - PGSIZE * np->tid , PGSIZE,
               (uint64)(np->trapframe), PTE_R | PTE_W) < 0){
